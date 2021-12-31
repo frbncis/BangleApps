@@ -192,8 +192,11 @@ function drawScrollableMenu(items) {
                     g.setFontAlign(1, -1);
                     g.drawString(v, xo - 2, iy);
                     drawCell(x, iy, x2, iy + CELL_HEIGHT - 1, hl, name, v);
-                } else {
+                } else if ("object" == typeof item && item.subtitle !== undefined) {
                     drawCell(x, iy, x2, iy + CELL_HEIGHT - 1, hl, name, item.subtitle ? item.subtitle : "");
+                }
+                else {
+                    drawCell(x, iy, x2, iy + CELL_HEIGHT - 1, hl, name, "");
                 }
                 g.setColor(g.theme.fg);
                 iy += CELL_HEIGHT;
@@ -236,7 +239,14 @@ function drawScrollableMenu(items) {
         },
         select: function () {
             var item = items[menuItems[options.selected]];
-            if (item.onselect) item.onselect(l);
+
+            // Backwards compatibility with E.showMenu
+            if ("function" == typeof item) {
+                item(l);
+            }
+            else if (item.onselect) {
+                item.onselect(l);
+            }
             else if ("object" == typeof item) {
                 // if a number, go into 'edit mode'
                 if ("number" == typeof item.value)
