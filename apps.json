@@ -5062,5 +5062,18 @@
       {"name":"ltherm.app.js","url":"app.js"},
       {"name":"ltherm.img","url":"icon.js","evaluate":true}
     ]
+  },
+  { "id": "rblmenu",
+    "name": "Rebble Menu",
+    "shortName":"Rebble Menu",
+    "icon": "app.png",
+    "version":"0.01",
+    "description": "Modify showMenu to be more Rebble-like",
+    "tags": "obelix",
+    "supports": ["BANGLEJS2"],
+    "readme": "README.md",
+    "storage": [
+      {"name":"rblmenu.boot.js","url":"rblmenu.boot.js"}
+    ]
   }
 ]
