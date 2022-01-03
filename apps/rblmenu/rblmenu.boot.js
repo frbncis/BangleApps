@@ -68,14 +68,14 @@ E.showMenu = function (items) {
     Bangle.setLCDPower(1); // ensure screen is on
 
     if (global.menuStack == undefined) {
-        console.log("menuStack: initializing");
+        // console.log("menuStack: initializing");
         global.menuStack = [];
     } else {
-        console.log("menuStack: already initialized");
+        // console.log("menuStack: already initialized");
     }
 
     if (items == -1) {
-        console.log('Going back!');
+        // console.log('Going back!');
         _ = global.menuStack.pop();
         const previousMenu = global.menuStack.pop();
 
@@ -87,7 +87,7 @@ E.showMenu = function (items) {
 
         return;
     } else {
-        console.log('pushing onto menuStack: ' + JSON.stringify(items));
+        // console.log('pushing onto menuStack: ' + JSON.stringify(items));
 
         items["< Back"] = {
             subtitle: 'Get me out of here!',
@@ -96,7 +96,7 @@ E.showMenu = function (items) {
 
         global.menuStack.push(items);
 
-        console.log('menuStack size: ' + global.menuStack.length);
+        // console.log('menuStack size: ' + global.menuStack.length);
     }
 
 
@@ -112,7 +112,7 @@ E.showMenu = function (items) {
         
     // }
 
-    console.log('menuStack: ' + JSON.stringify(global.menuStack));
+    // console.log('menuStack: ' + JSON.stringify(global.menuStack));
 
     var menuItems = Object.keys(items);
     var options = items[""];
