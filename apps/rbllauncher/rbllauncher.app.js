@@ -158,12 +158,19 @@ launcherMenu["Settings"].image = settingsIcon;
 
 let notifications;
 
+// Construct the notifications as a doubly linked list.
 function loadNotifications() {
     notifications = {};
     
+    // Head
     notifications["< Back"] = {
         onselect: function () { E.showMenu(launcherMenu); },
+        previous: undefined,
+        next: undefined
     }
+
+    const head = notifications["< Back"];
+    let previousNode = head;
     
     loadMessages();
 
@@ -172,11 +179,12 @@ function loadNotifications() {
         if (m.id == 'music') {
             return;
         }
-    
+  
         notifications[m.title] = {
             subtitle: m.body,
             image: getMessageIcon(m),
-            onselect: () => showMessageOverlay(m.id, () => {
+            message: m,
+            onselect: () => showMessageOverlay(notifications[m.title], () => {
                 notifications[""] = Object.assign(
                     {},
                     notifications[""],
@@ -189,7 +197,11 @@ function loadNotifications() {
 
                 showNotifications(notifications);
             }),
+            previous: previousNode,
         };
+
+        previousNode.next = notifications[m.title];
+        previousNode = notifications[m.title];
     });
 }
 
@@ -283,10 +295,85 @@ function showPopover(onBack, onDismiss, onCancel, selectedIndex) {
     });
 }
 
-function showMessageOverlay(messageUid, ondismissed, yOffset) {
+const CELL_MENU_HEIGHT = 10;
+
+function getNotificationCount(current) {
+    // Find the head
+    let head = current;
+
+    while (head.previous !== undefined) {
+        head = head.previous;
+    }
+
+    let currentNodePosition = 0;
+    let node = head;
+
+    // Find the current nod position
+    while (node.next !== undefined && node.next != current) {
+        currentNodePosition += 1;
+        node = node.next;
+    };
+
+    let depth = currentNodePosition;
+
+    // Continue to the end
+    while(node.next !== undefined) {
+        node = node.next;
+        depth += 1;
+    }
+
+    return { current: (currentNodePosition + 1), total: depth }
+}
+
+
+// TODO: This should be shared with the status bar draw
+// code used in menu software mod.
+const drawStatusBar = (text, bgColor) => {
+    const x = 0;
+    const y = 0;
+    const x2 = g.getWidth();
+    const y2 = CELL_MENU_HEIGHT;
+
+    g.setFont('6x8');
+    g.setColor(bgColor);
+    const textMetrics = g.stringMetrics(text);
+
+    g.fillRect(x, y, x2, y2 - 1);
+
+    // Set text to black
+    g.setColor(0, 0, 0);
+    g.drawString(
+        text,
+        ((x2 - x) / 2) - (textMetrics.width /2),
+        ((y2 - y) / 2) - (textMetrics.height / 2)
+    );
+
+    g.drawLine(x, y - 1, x2, y - 1);
+}
+
+function getHeaderBackground(messageNode) {
+    const colorsDict = {
+        red: "#f00", green: "#0f0", blue: "#00f",
+        cyan: "#0ff", magenta: "#f0f", yellow: "#ff0"
+    };
+
+    const colors = Object.keys(colorsDict);
+
+    let messageNodeDetails = getNotificationCount(messageNode);
+
+    const selectedColor = colors[(messageNodeDetails.current % colors.length)];
+
+    return colorsDict[selectedColor];
+}
+
+function showMessageOverlay(messageNode, ondismissed, yOffset) {
     Bangle.setUI();
 
-    const message = messages.find(m => m.id == messageUid);
+    g.reset().clearRect(0, 0, g.getWidth(), g.getHeight());
+
+    // const message = messages.find(m => m.id == messageUid);
+    const message = messageNode.message;
+    let shouldAdvanceToNextMessage = false;
 
     if (ondismissed === undefined) {
         ondismissed = () => {
@@ -297,8 +384,13 @@ function showMessageOverlay(messageUid, ondismissed, yOffset) {
     if (yOffset === undefined) {
         yOffset = 0;
     } else if (yOffset >= 20) {
-        // Debounce needed to avoid going back into the message
-        setTimeout(ondismissed, 250);
+        // Navigating backwards.
+        if (messageNode.previous !== undefined && messageNode.previous.message !== undefined) {
+            setTimeout(() => showMessageOverlay(messageNode.previous, ondismissed, 0));
+        } else {
+            // Debounce needed to avoid going back into the message
+            setTimeout(ondismissed, 250);
+        }
     }
 
     if (!message) {
@@ -314,14 +406,15 @@ function showMessageOverlay(messageUid, ondismissed, yOffset) {
     g.reset().clearRect(Bangle.appRect);
 
     const x = 10;
-    let y = yOffset;
+    let y = yOffset + CELL_MENU_HEIGHT;
     const VERT_PADDING = 5;
     const HEADER_HEIGHT = 48;
 
     // Draw the header background
-    g.setColor(g.theme.bgH);
+    const headerBackground = getHeaderBackground(messageNode);
+    g.setColor(headerBackground);
     g.fillRect(0, 0, Bangle.appRect.w, y + HEADER_HEIGHT);
-
+    
     let icon = getMessageIcon(message);
 
     g.drawImage(
@@ -376,9 +469,58 @@ function showMessageOverlay(messageUid, ondismissed, yOffset) {
 
         // Advance y to the end of the message
         y += bodyLines.length * g.stringMetrics(' ').height + HEADER_HEIGHT;
+
+        // Is there a next message? Draw the header block for the next message at the bottom.
+        if (messageNode.next !== undefined) {
+            const nextMessage = messageNode.next.message;
+
+            // Figure out how much padding we need between the end of the current
+            // body to align with the yOffset "steps per scroll"
+            const endOfMessageY = y + HEADER_HEIGHT + CELL_MENU_HEIGHT;
+            const padding = (endOfMessageY % 30);
+            y += padding;
+
+            // Draw the header background
+            g.setColor(getHeaderBackground(messageNode.next));
+            g.fillRect(0, y, Bangle.appRect.w, y + HEADER_HEIGHT);
+            
+            let icon = getMessageIcon(nextMessage);
+
+            g.drawImage(
+                icon,
+                x,
+                y + (HEADER_HEIGHT / 2) - (notificationGenericIcon.height / 2),
+                {
+                    // Scale this so it is 23px x 23px
+                    scale: 23 / icon.width
+                }
+            );
+
+            // Draw the header text
+            g.reset().setFontGothicA1();
+            g.drawString(
+                nextMessage.src ? nextMessage.src : 'Notification',
+                x + notificationGenericIcon.width + 10,
+                y + (HEADER_HEIGHT / 2) - (g.stringMetrics(' ').height / 2)
+            );
+
+            y += HEADER_HEIGHT;
+
+            if (y <= g.getHeight()) {
+                shouldAdvanceToNextMessage = true;
+            }
+        }
     } else {
         g.drawString("Message not found.");
     }
+
+    // Draw status bar at the end so it has the highest z-index
+    const notificationCount = getNotificationCount(messageNode);
+
+    drawStatusBar(
+        notificationCount.current + '/' + notificationCount.total,
+        headerBackground
+    );
 
     if (message.id == 'music') {
         // The poll based reload task is unstable.
@@ -426,7 +568,7 @@ function showMessageOverlay(messageUid, ondismissed, yOffset) {
                     },
                     500);
             },
-            () => showMessageOverlay(messageUid, ondismissed, yOffset)
+            () => showMessageOverlay(messageNode, ondismissed, yOffset)
         );
 
         setWatch(popover, BTN1, {edge:"falling"});
@@ -436,8 +578,12 @@ function showMessageOverlay(messageUid, ondismissed, yOffset) {
             if (dir === undefined) {
                 popover();
             } else {
-                // Redraw the message overlay with a scroll offset.
-                showMessageOverlay(messageUid, ondismissed, yOffset + dir * 30);
+                if (!shouldAdvanceToNextMessage) {
+                    // Redraw the message overlay with a scroll offset.
+                    showMessageOverlay(messageNode, ondismissed, yOffset + dir * 30);
+                } else {
+                    showMessageOverlay(messageNode.next, ondismissed, 0);
+                }
             }
         });
     }
