@@ -46,7 +46,9 @@ var telegramIcon = {
 }
 
 const showNotifications = (n) => {
-    if (n && Object.keys(n).length > 0) {
+    // An empty notifications list contains 
+    // just the "< Back" entry.
+    if (n && Object.keys(n).length > 1) {
         E.showMenu(n);
     } else {
         const NO_NOTIFICATIONS_TEXT = 'No Notifications';
@@ -250,7 +252,7 @@ function getNotificationCount(current) {
 
 // TODO: This should be shared with the status bar draw
 // code used in menu software mod.
-const drawStatusBar = (text, bgColor) => {
+const drawStatusBar = (bgColor, textColor, centerText, rightText) => {
     const x = 0;
     const y = 0;
     const x2 = g.getWidth();
@@ -258,16 +260,24 @@ const drawStatusBar = (text, bgColor) => {
 
     g.setFont('6x8');
     g.setColor(bgColor);
-    const textMetrics = g.stringMetrics(text);
+    const centerTextMetrics = g.stringMetrics(centerText);
+    const rightTextMetrics = g.stringMetrics(rightText);
 
+    const textYPosition = ((y2 - y) / 2) - (centerTextMetrics.height / 2);
     g.fillRect(x, y, x2, y2 - 1);
 
-    // Set text to black
-    g.setColor(0, 0, 0);
+    g.setColor(textColor);
+
     g.drawString(
-        text,
-        ((x2 - x) / 2) - (textMetrics.width /2),
-        ((y2 - y) / 2) - (textMetrics.height / 2)
+        centerText,
+        ((x2 - x) / 2) - (centerTextMetrics.width /2),
+        textYPosition
+    );
+
+    g.drawString(
+        rightText,
+        x2 - rightTextMetrics.width,
+        textYPosition
     );
 
     g.drawLine(x, y - 1, x2, y - 1);
@@ -288,12 +298,72 @@ function getHeaderBackground(messageNode) {
     return colorsDict[selectedColor];
 }
 
+const NOTIFICATION_OVERLAY_PADDING_LEFT = 10;
+const NOTIFICATION_TEXT_PADDING_LEFT = 10;
+const HEADER_HEIGHT = 55; // must be a factor of g.getHeight() = 176
+const VERT_PADDING = 5; // TODO: Remove this?
+const PIXELS_PER_SCROLL = 22; // must be a factor of g.getHeight() = 176
+
+// Draws a notification header. Returns the y position for the end of the header.
+function drawNotificationHeader(y, icon, title, bgColor, textColor) {
+    g.setColor(bgColor);
+    g.fillRect(0, y, g.getWidth(), y + HEADER_HEIGHT);
+
+    // Draw the icon
+    g.drawImage(
+        icon,
+        NOTIFICATION_OVERLAY_PADDING_LEFT,
+        y + (HEADER_HEIGHT / 2) - (notificationGenericIcon.height / 2),
+        {
+            // Scale this so it is 23px x 23px
+            scale: 23 / icon.width
+        }
+    );
+
+    // Draw the title
+    g.reset().setFontGothicA1();
+
+    g.setColor(textColor);
+    g.drawString(
+        title,
+        NOTIFICATION_OVERLAY_PADDING_LEFT + icon.width + NOTIFICATION_TEXT_PADDING_LEFT,
+        y + (HEADER_HEIGHT / 2) - (g.stringMetrics(' ').height / 2)
+    );
+
+    return HEADER_HEIGHT;
+}
+
+function drawNotificationBody(y, title, body) {
+    const startY = y;
+    g.reset().setFontGothicA1();
+
+    const titleLines = g.wrapString(title, Bangle.appRect.w - 30);
+    const bodyLines = getTextLines(body, Bangle.appRect.w - 30);
+
+    g.drawString(
+        titleLines.join('\n'),
+        NOTIFICATION_OVERLAY_PADDING_LEFT,
+        y
+    );
+
+    y += g.stringMetrics(' ').height * titleLines.length;
+
+    y += VERT_PADDING;
+
+    g.setFont('6x8', 2);
+    g.drawString(bodyLines.join('\n'), NOTIFICATION_OVERLAY_PADDING_LEFT, y);
+
+    // Advance y to the end of the message
+    y += bodyLines.length * g.stringMetrics(' ').height;
+
+    return y - startY;
+}
+
 function showMessageOverlay(messageNode, ondismissed, yOffset) {
     Bangle.setUI();
 
     g.reset().clearRect(0, 0, g.getWidth(), g.getHeight());
 
-    // const message = messages.find(m => m.id == messageUid);
     const message = messageNode.message;
     let shouldAdvanceToNextMessage = false;
 
@@ -327,35 +397,12 @@ function showMessageOverlay(messageNode, ondismissed, yOffset) {
 
     g.reset().clearRect(Bangle.appRect);
 
-    const x = 10;
-    let y = yOffset + CELL_MENU_HEIGHT;
-    const VERT_PADDING = 5;
-    const HEADER_HEIGHT = 48;
+    let y = yOffset;
 
     // Draw the header background
     const headerBackground = getHeaderBackground(messageNode);
-    g.setColor(headerBackground);
-    g.fillRect(0, 0, Bangle.appRect.w, y + HEADER_HEIGHT);
     
     let icon = getMessageIcon(message);
-
-    g.drawImage(
-        icon,
-        x,
-        y + (HEADER_HEIGHT / 2) - (notificationGenericIcon.height / 2),
-        {
-            // Scale this so it is 23px x 23px
-            scale: 23 / icon.width
-        }
-    );
-
-    // Draw the header text
-    g.reset().setFontGothicA1();
-    g.drawString(
-        message.src ? message.src : 'Notification',
-        x + notificationGenericIcon.width + 10,
-        y + (HEADER_HEIGHT / 2) - (g.stringMetrics(' ').height / 2)
-    );
 
     if (yOffset > 0) {
         const PULL_TO_EXIT_TEXT = "<";
@@ -368,80 +415,60 @@ function showMessageOverlay(messageNode, ondismissed, yOffset) {
         );
     }
 
-    y += HEADER_HEIGHT + VERT_PADDING;
+    y += drawNotificationHeader(
+        y,
+        icon,
+        message.src ? message.src : 'Notification',
+        headerBackground,
+        '#000'
+    );
 
-    if(message) {
-        g.reset().setFontGothicA1();
+    y += VERT_PADDING;
 
-        const titleLines = g.wrapString(message.title, Bangle.appRect.w - 30);
-        const bodyLines = getTextLines(message.body, Bangle.appRect.w - 30);
+    y += drawNotificationBody(y, message.title, message.body);
 
-        g.drawString(
-            titleLines.join('\n'),
-            x,
-            y
+    // Is there a next message? Draw the header block for the next message at the bottom.
+    if (messageNode.next !== undefined) {
+        const nextMessage = messageNode.next.message;
+
+        // Voodo math to figure out the positioning of the next
+        // notification header
+        let a = y - yOffset; // End of the message without the offset.
+
+        if (a <= g.getHeight()) {
+            // unscrolled message fits on the screen.
+            a = g.getHeight();
+        } else {
+            // message that requires scrolling.
+            a += g.getHeight() / 4;
+        }
+
+        a += yOffset;
+        y = a;
+
+        let icon = getMessageIcon(nextMessage);
+
+        y += drawNotificationHeader(
+            y,
+            icon,
+            nextMessage.src ? nextMessage.src : 'Notification',
+            getHeaderBackground(messageNode.next),
+            '#000'
         );
 
-        y += g.stringMetrics(' ').height * titleLines.length;
-
-        y += VERT_PADDING;
-
-        g.setFont('6x8', 2);
-        g.drawString(bodyLines.join('\n'), x, y);
-
-        // Advance y to the end of the message
-        y += bodyLines.length * g.stringMetrics(' ').height + HEADER_HEIGHT;
-
-        // Is there a next message? Draw the header block for the next message at the bottom.
-        if (messageNode.next !== undefined) {
-            const nextMessage = messageNode.next.message;
-
-            // Figure out how much padding we need between the end of the current
-            // body to align with the yOffset "steps per scroll"
-            const endOfMessageY = y + HEADER_HEIGHT + CELL_MENU_HEIGHT;
-            const padding = (endOfMessageY % 30);
-            y += padding;
-
-            // Draw the header background
-            g.setColor(getHeaderBackground(messageNode.next));
-            g.fillRect(0, y, Bangle.appRect.w, y + HEADER_HEIGHT);
-            
-            let icon = getMessageIcon(nextMessage);
-
-            g.drawImage(
-                icon,
-                x,
-                y + (HEADER_HEIGHT / 2) - (notificationGenericIcon.height / 2),
-                {
-                    // Scale this so it is 23px x 23px
-                    scale: 23 / icon.width
-                }
-            );
-
-            // Draw the header text
-            g.reset().setFontGothicA1();
-            g.drawString(
-                nextMessage.src ? nextMessage.src : 'Notification',
-                x + notificationGenericIcon.width + 10,
-                y + (HEADER_HEIGHT / 2) - (g.stringMetrics(' ').height / 2)
-            );
-
-            y += HEADER_HEIGHT;
-
-            if (y <= g.getHeight()) {
-                shouldAdvanceToNextMessage = true;
-            }
+        if (y <= g.getHeight()) {
+            shouldAdvanceToNextMessage = true;
         }
-    } else {
-        g.drawString("Message not found.");
     }
 
     // Draw status bar at the end so it has the highest z-index
     const notificationCount = getNotificationCount(messageNode);
 
     drawStatusBar(
-        notificationCount.current + '/' + notificationCount.total,
-        headerBackground
+        headerBackground,
+        '#000',
+        timeStr,
+        notificationCount.current + '/' + notificationCount.total
     );
 
     if (message.id == 'music') {
@@ -521,7 +548,7 @@ function showMessageOverlay(messageNode, ondismissed, yOffset) {
             } else {
                 if (!shouldAdvanceToNextMessage) {
                     // Redraw the message overlay with a scroll offset.
-                    showMessageOverlay(messageNode, ondismissed, yOffset + dir * 30);
+                    showMessageOverlay(messageNode, ondismissed, yOffset + dir * PIXELS_PER_SCROLL);
                 } else {
                     showMessageOverlay(messageNode.next, ondismissed, 0);
                 }
