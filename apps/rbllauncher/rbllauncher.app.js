@@ -600,3 +600,9 @@ Bangle.on('lock', locked => {
   if (locked)
     lockTimeout = setTimeout(_=>load(), 10000);
 });
+
+exports.showMessageOverlay = (msgNode, ondismiss, offset) => {
+    console.log('Got external call to showMessageOverlay');
+
+    showMessageOverlay(msgNode, ondismiss, offset);
+}
