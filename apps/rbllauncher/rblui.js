@@ -1,4 +1,4 @@
-exports.showPopover(popoverOptions, selectedIndex) {
+function showPopover(popoverOptions, selectedIndex) {
     if (selectedIndex === undefined || selectedIndex < 0) {
         selectedIndex = 0;
     } else if (selectedIndex >= popoverOptions.length) {
@@ -54,7 +54,9 @@ exports.showPopover(popoverOptions, selectedIndex) {
                 newSelectedIndex += dir;
             }
         
-            showPopover(onBack, onDismiss, onCancel, newSelectedIndex);
+            showPopover(popoverOptions, newSelectedIndex);
         }
     });
 }
+
+exports.showPopover = showPopover;

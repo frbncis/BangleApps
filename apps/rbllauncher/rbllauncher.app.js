@@ -1,5 +1,5 @@
 var s = require("Storage");
-const rblui = require("rblui");
+var rblui = require("rblui");
 
 require("FontTeletext10x18Mode7").add(Graphics);
 
