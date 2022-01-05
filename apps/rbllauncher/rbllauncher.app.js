@@ -1,4 +1,6 @@
 var s = require("Storage");
+const rblui = require("rblui");
+
 require("FontTeletext10x18Mode7").add(Graphics);
 
 var notificationGenericIcon = {
@@ -41,7 +43,7 @@ var telegramIcon = {
     width : 24, height : 24, bpp : 8,
     transparent : 254,
     buffer : E.toArrayBuffer(atob("/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/gAA/v7+/v7+/v7+/v7+/v7+/v7+/gAAAAAAAP7+/v7+/v7+/v7+/v7+/v4AAAAAAP4AAP7+/v7+/v7+/v7+/v7+AAAAAAD+/v4AAP7+/v7+/v7+/v7+AAAAAAD+/v7+/gAA/v7+/v7+/v7+/gAAAAAA/v7+/gD+/gAA/v7+/v7+/gAAAAAAAP7+/v4AAP7+/gAA/v7+/v7+AAAAAP7+/v7+AAAA/v7+/gAA/v7+/v4AAAD+/v7+/v4AAAD+/v7+/gAA/v7+/v4AAAAAAP7+AAAAAP7+/v7+AAD+/v7+/v7+/gAAAAAAAAAA/v7+/v7+AAD+/v7+/v7+/v7+AAAAAAD+/v7+/v7+AAD+/v7+/v7+/v7+/gAAAAD+AAD+/v7+AAD+/v7+/v7+/v7+/v4AAP4AAAAA/v7+AAD+/v7+/v7+/v7+/v4AAAAAAAAAAP4AAP7+/v7+/v7+/v7+/v4AAAAA/v4AAAAAAP7+/v7+/v7+/v7+/v7+AAD+/v7+AAAAAP7+/v7+/v7+/v7+/v7+/v7+/v7+/gAA/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+"))
-  }
+}
 
 const showNotifications = (n) => {
     if (n && Object.keys(n).length > 0) {
@@ -213,86 +215,6 @@ function getTextLines(text, width, firstLine, lastLine) {
     const lines = g.wrapString(text, width);
 
     return lines.slice(firstLine, lastLine);
-}
-
-function showPopover(onBack, onDismiss, onCancel, selectedIndex) {
-    const popoverOptions = [
-        {
-            text: "Back",
-            onselect: onBack
-        },
-        {
-            text: "Dismiss",
-            onselect: onDismiss
-        },
-        {
-            text: "---"
-        },
-        {
-            text: "Cancel",
-            onselect: () => {
-                onCancel()
-            }
-        }
-    ];
-
-    if (selectedIndex === undefined || selectedIndex < 0) {
-        selectedIndex = 0;
-    } else if (selectedIndex >= popoverOptions.length) {
-        selectedIndex = popoverOptions.length - 1;
-    }
-
-    const EXPOSED_LEFT_EDGE = g.getWidth()/3;
-
-    // TODO: Align margin/padding terminology.
-    const POPOVER_LEFT_MARGIN = 10;
-    const POPOVER_TOP_MARGIN = 10;
-
-    g.setColor(0, 0, 0);
-    g.fillRect(EXPOSED_LEFT_EDGE, 0, g.getWidth(), g.getHeight());
-
-    let x = EXPOSED_LEFT_EDGE + POPOVER_LEFT_MARGIN;
-    let y = POPOVER_TOP_MARGIN;
-
-    g.reset().setFontGothicA1();
-
-    g.setColor(255, 255, 255);
-    const metrics = g.stringMetrics(" ");
-
-    popoverOptions.forEach((option, index) => {
-        const bullet = " > ";
-        const bulletMetrics = g.stringMetrics(bullet)
-
-        if (option.text == '---') {
-            g.drawLine(x + bulletMetrics.width, y, g.getWidth() - POPOVER_LEFT_MARGIN, y);
-        } else {
-            if (index == selectedIndex) {
-                g.drawString(bullet, x, y);
-            }
-    
-            g.drawString(option.text, x + bulletMetrics.width, y);
-            y += metrics.height        
-        }
-
-        y += POPOVER_TOP_MARGIN;
-    });
-
-    Bangle.setUI();
-    Bangle.setUI('updown', (dir) => {
-        if (!dir) {
-            popoverOptions[selectedIndex].onselect();
-        } else {
-            let newSelectedIndex = selectedIndex + dir;
-
-            // Horizontal rules cannot be selected, so apply another
-            // "scroll"
-            while (popoverOptions[newSelectedIndex] && popoverOptions[newSelectedIndex].text === '---') {
-                newSelectedIndex += dir;
-            }
-        
-            showPopover(onBack, onDismiss, onCancel, newSelectedIndex);
-        }
-    });
 }
 
 const CELL_MENU_HEIGHT = 10;
@@ -556,20 +478,39 @@ function showMessageOverlay(messageNode, ondismissed, yOffset) {
         });
     } else {
         // pressing button shows popover
-        const popover = _ => showPopover(
-            ondismissed,
-            () => {
-                Bangle.messageResponse(message, false);
+        const popoverOnBack = ondismissed;
+        const popoverOnDismiss = () => {
+            Bangle.messageResponse(message, false);
 
-                setTimeout(
-                    () => {
-                        loadNotifications();
-                        showNotifications(notifications);
-                    },
-                    500);
+            setTimeout(
+                () => {
+                    loadNotifications();
+                    showNotifications(notifications);
+                },
+                500);
+        };
+
+        const popoverOnCancel = () => showMessageOverlay(messageNode, ondismissed, yOffset);
+
+        const popoverOptions = [
+            {
+                text: "Back",
+                onselect: popoverOnBack
             },
-            () => showMessageOverlay(messageNode, ondismissed, yOffset)
-        );
+            {
+                text: "Dismiss",
+                onselect: popoverOnDismiss
+            },
+            {
+                text: "---"
+            },
+            {
+                text: "Cancel",
+                onselect: popoverOnCancel
+            }
+        ];
+
+        const popover = _ => rblui.showPopover(popoverOptions);
 
         setWatch(popover, BTN1, {edge:"falling"});
 

@@ -5080,7 +5080,7 @@
     "id": "rbllauncher",
     "name": "Rebble Launcher",
     "shortName": "Rebble Launcher",
-    "version": "0.12",
+    "version": "0.13",
     "description": "A Rebble-like launcher",
     "icon": "app.png",
     "type": "launch",
@@ -5088,6 +5088,7 @@
     "supports": ["BANGLEJS2"],
     "storage": [
       {"name":"rbllauncher.app.js","url":"rbllauncher.app.js"}
+      {"name":"rblui.js","url":"rblui"}
     ],
     "sortorder": -10
   }
