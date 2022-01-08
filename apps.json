@@ -5088,7 +5088,7 @@
     "supports": ["BANGLEJS2"],
     "storage": [
       {"name":"rbllauncher.app.js","url":"rbllauncher.app.js"},
-      {"name":"rblui.js","url":"rblui"}
+      {"name":"rblui.js","url":"rblui.js"}
     ],
     "sortorder": -10
   }
