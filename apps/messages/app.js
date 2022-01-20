@@ -199,68 +199,24 @@ function showMessageSettings(msg) {
 }
 
 function showMessage(msgid) {
-  var msg = MESSAGES.find(m=>m.id==msgid);
-  if (!msg) return checkMessages({clockIfNoMsg:0,clockIfAllRead:0,showMsgIfUnread:0}); // go home if no message found
-  if (msg.src=="Maps") {
-    cancelReloadTimeout(); // don't auto-reload to clock now
-    return showMapMessage(msg);
-  }
-  if (msg.id=="music") {
-    cancelReloadTimeout(); // don't auto-reload to clock now
-    return showMusicMessage(msg);
-  }
-  // Normal text message display
-  var title=msg.title, titleFont = fontLarge, lines;
-  if (title) {
-    var w = g.getWidth()-48;
-    if (g.setFont(titleFont).stringWidth(title) > w)
-      titleFont = fontMedium;
-    if (g.setFont(titleFont).stringWidth(title) > w) {
-      lines = g.wrapString(title, w);
-      title = (lines.length>2) ? lines.slice(0,2).join("\n")+"..." : lines.join("\n");
-    }
-  }
-  var buttons = [
-    {type:"btn", src:getBackImage(), cb:()=>{
-      msg.new = false; saveMessages(); // read mail
-      cancelReloadTimeout(); // don't auto-reload to clock now
-      checkMessages({clockIfNoMsg:1,clockIfAllRead:0,showMsgIfUnread:1});
-    }} // back
-  ];
-  if (msg.positive) {
-    buttons.push({type:"btn", src:getPosImage(), cb:()=>{
-      msg.new = false; saveMessages();
-      cancelReloadTimeout(); // don't auto-reload to clock now
-      Bangle.messageResponse(msg,true);
-      checkMessages({clockIfNoMsg:1,clockIfAllRead:1,showMsgIfUnread:1});
-    }});
-  }
-  if (msg.negative) {
-    buttons.push({type:"btn", src:getNegImage(), cb:()=>{
-      msg.new = false; saveMessages();
-      cancelReloadTimeout(); // don't auto-reload to clock now
-      Bangle.messageResponse(msg,false);
-      checkMessages({clockIfNoMsg:1,clockIfAllRead:1,showMsgIfUnread:1});
-    }});
-  }
-  lines = g.wrapString(msg.body, g.getWidth()-10);
-  var body = (lines.length>4) ? lines.slice(0,4).join("\n")+"..." : lines.join("\n");
-  layout = new Layout({ type:"v", c: [
-    {type:"h", fillx:1, bgCol:colBg,  c: [
-      { type:"btn", src:getMessageImage(msg), pad: 3, cb:()=>{
-        cancelReloadTimeout(); // don't auto-reload to clock now
-        showMessageSettings(msg);
-      }},
-      { type:"v", fillx:1, c: [
-        {type:"txt", font:fontSmall, label:msg.src||"Message", bgCol:colBg, fillx:1, pad:2, halign:1 },
-        title?{type:"txt", font:titleFont, label:title, bgCol:colBg, fillx:1, pad:2 }:{},
-      ]},
-    ]},
-    {type:"txt", font:fontMedium, label:body, fillx:1, filly:1, pad:2 },
-    {type:"h",fillx:1, c: buttons}
-  ]});
-  g.clearRect(Bangle.appRect);
-  layout.render();
+  // var msg = MESSAGES.find(m=>m.id==msgid);
+  const notifs = require('rbl.libs.js').loadNotifications();
+  require('rblui.messageOverlay.js').showMessageOverlay(notifs, load, 0);
+  
+  // let notification = {
+  //   subtitle: msg.body,
+  //   message: msg,
+  //   previous: undefined,
+  //   next: undefined
+  // };
+  
+  // const start = notifications.find(n => n.message.id == msgid);
+
+  let a = Object.keys(notifs);
+
+
+
+  require("rbllauncher.app.js").showMessageOverlay(notifs[a[1]], load, 0);
 }
 
 
